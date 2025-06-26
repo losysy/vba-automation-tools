@@ -1,0 +1,141 @@
+﻿Sub Main()
+    Dim oDoc As AssemblyDocument = ThisApplication.ActiveDocument
+    Dim oBOM As BOM = oDoc.ComponentDefinition.BOM
+    oBOM.StructuredViewEnabled = True
+    oBOM.StructuredViewFirstLevelOnly = False
+
+    Dim oBOMView As BOMView = Nothing
+    For Each view As BOMView In oBOM.BOMViews
+        If View.ViewType = BOMViewTypeEnum.kStructuredBOMViewType Then
+            oBOMView = View
+            Exit For
+        End If
+    Next
+
+    If oBOMView Is Nothing Then
+        MessageBox.Show("Не удалось получить представление спецификации 'Structured'")
+        Exit Sub
+    End If
+
+    Dim oRows As BOMRowsEnumerator = oBOMView.BOMRows
+    Dim templatePath1 As String = "C:\Temp\Template.xls"
+    Dim templatePath2 As String = "C:\Temp\Template2.xls"
+
+    Try
+        If Not System.IO.File.Exists(templatePath1) Then
+            MessageBox.Show("Файл первого шаблона не найден.")
+            Exit Sub
+        End If
+
+        If Not System.IO.File.Exists(templatePath2) Then
+            MessageBox.Show("Файл второго шаблона не найден.")
+            Exit Sub
+        End If
+
+        Dim oExcelApp = CreateObject("Excel.Application")
+        oExcelApp.Visible = False
+
+        Dim pageIndex As Integer = 1
+        Dim rowIndex As Integer = 16
+        Dim positionRowIndexStart As Integer = 16
+        Dim maxRowsPerSheet As Integer = 63
+        Dim positionList As New List(Of Tuple(Of String, String, String, String)) ' (pos, partNum, descr, qty)
+        Dim oWorkbook = oExcelApp.Workbooks.Open(templatePath1)
+        Dim oWorksheet = oWorkbook.Sheets(1)
+
+        ' Название открытой сборки
+        Dim assemblyPartNumber = oDoc.PropertySets.Item("Design Tracking Properties").Item("Part Number").Value
+        Dim assemblyDescription = oDoc.PropertySets.Item("Design Tracking Properties").Item("Description").Value
+
+        oWorksheet.Cells(16, 12).Value = assemblyPartNumber ' обозначение в строке 16
+        oWorksheet.Cells(64, 26).Value = assemblyPartNumber
+        oWorksheet.Cells(67, 26).Value = assemblyDescription
+
+        Dim lastCategory As String = ""
+        Dim currentRow As Integer = 0
+
+        For Each oRow As BOMRow In oRows
+            Dim oDef = oRow.ComponentDefinitions(1)
+            Dim doc = oDef.Document
+            Dim posNumber As String = ""
+            Dim partNum As String = ""
+            Dim descr As String = ""
+            Dim subtypeName As String = ""
+            Dim bomStructure As String = ""
+
+            Try
+                posNumber = oRow.ItemNumber
+            Catch : posNumber = "" : End Try
+
+            Try
+                partNum = doc.PropertySets.Item("Design Tracking Properties").Item("Part Number").Value
+            Catch : partNum = "?" : End Try
+
+            Try
+                descr = doc.PropertySets.Item("Design Tracking Properties").Item("Description").Value
+            Catch : descr = "?" : End Try
+
+            Try
+                bomStructure = oDef.BOMStructure.ToString()
+            Catch : bomStructure = "" : End Try
+
+            Try
+                subtypeName = doc.PropertySets.Item("Design Tracking Properties").Item("Document SubType Name").Value
+            Catch : subtypeName = "" : End Try
+
+            Dim category As String = ""
+
+            If subtypeName = "Assembly" Then
+                category = "Сборочные единицы"
+            ElseIf partNum <> descr And bomStructure = "kNormalBOMStructure" Then
+                category = "Детали"
+            Else
+                category = "Стандартные изделия"
+            End If
+
+            ' Категории идут строго по порядку — одна сменяется навсегда
+            If category <> lastCategory Then
+                If rowIndex > maxRowsPerSheet Then
+                    ' Новый лист
+                    oWorkbook.SaveAs(System.IO.Path.GetDirectoryName(oDoc.FullFileName) & "\" & System.IO.Path.GetFileNameWithoutExtension(oDoc.FullFileName) & "_лист" & pageIndex & ".xls")
+                    oWorkbook.Close(False)
+                    pageIndex += 1
+                    rowIndex = 6
+                    oWorkbook = oExcelApp.Workbooks.Open(templatePath2)
+                    oWorksheet = oWorkbook.Sheets(1)
+                End If
+
+                rowIndex += 2
+                oWorksheet.Cells(rowIndex, 35).Value = category
+                oWorksheet.Cells(rowIndex, 35).Font.Italic = True
+                oWorksheet.Cells(rowIndex, 35).Font.Underline = True
+                rowIndex += 2
+                lastCategory = category
+            End If
+
+            If rowIndex > maxRowsPerSheet Then
+                oWorkbook.SaveAs(System.IO.Path.GetDirectoryName(oDoc.FullFileName) & "\" & System.IO.Path.GetFileNameWithoutExtension(oDoc.FullFileName) & "_лист" & pageIndex & ".xls")
+                oWorkbook.Close(False)
+                pageIndex += 1
+                rowIndex = 6
+                oWorkbook = oExcelApp.Workbooks.Open(templatePath2)
+                oWorksheet = oWorkbook.Sheets(1)
+            End If
+
+            oWorksheet.Cells(rowIndex, 9).Value = posNumber
+            oWorksheet.Cells(rowIndex, 12).Value = partNum
+            oWorksheet.Cells(rowIndex, 35).Value = descr
+            oWorksheet.Cells(rowIndex, 56).Value = oRow.ItemQuantity
+            rowIndex += 2
+
+            If category = "Стандартные изделия" Then lastCategory = category ' после начала этой категории дальше только она
+        Next
+
+        oWorkbook.SaveAs(System.IO.Path.GetDirectoryName(oDoc.FullFileName) & "\" & System.IO.Path.GetFileNameWithoutExtension(oDoc.FullFileName) & "_лист" & pageIndex & ".xls")
+        oWorkbook.Close(False)
+        oExcelApp.Quit()
+        MessageBox.Show("Экспорт завершён. Листов: " & pageIndex)
+    Catch ex As Exception
+        MessageBox.Show("Ошибка: " & ex.Message)
+    End Try
+End Sub

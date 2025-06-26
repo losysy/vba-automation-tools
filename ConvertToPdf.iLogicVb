@@ -1,0 +1,53 @@
+﻿Sub Main()
+    ' Получаем активный документ
+    Dim oDoc As Document
+    oDoc = ThisApplication.ActiveDocument
+
+    ' Проверяем, является ли документ чертежом
+    If oDoc.DocumentType <> DocumentTypeEnum.kDrawingDocumentObject Then
+        MessageBox.Show("Текущий документ не является чертежом (IDW или DWG)", "Ошибка")
+        Exit Sub
+    End If
+
+    ' Получаем папку, где находится исходный файл
+    Dim folderPath As String
+    folderPath = System.IO.Path.GetDirectoryName(oDoc.FullFileName)
+
+    ' Формируем имя PDF-файла
+    Dim pdfFileName As String
+    pdfFileName = System.IO.Path.Combine(folderPath, System.IO.Path.GetFileNameWithoutExtension(oDoc.FullFileName) & ".pdf")
+
+    ' Получаем плагин PDF
+    Dim oPDFAddIn As TranslatorAddIn
+    oPDFAddIn = ThisApplication.ApplicationAddIns.ItemById("{0AC6FD96-2F4D-42CE-8BE0-8AEA580399E4}")
+
+    If oPDFAddIn Is Nothing Then
+        MessageBox.Show("PDF-плагин не найден", "Ошибка")
+        Exit Sub
+    End If
+
+    ' Создаём контекст и опции
+    Dim oContext As TranslationContext
+    oContext = ThisApplication.TransientObjects.CreateTranslationContext
+    oContext.Type = IOMechanismEnum.kFileBrowseIOMechanism
+
+    Dim oOptions As NameValueMap
+    oOptions = ThisApplication.TransientObjects.CreateNameValueMap
+
+    If oPDFAddIn.HasSaveCopyAsOptions(oDoc, oContext, oOptions) Then
+        oOptions.Value("All_Color_AS_Black") = False
+        oOptions.Value("Remove_Line_Weights") = False
+        oOptions.Value("Vector_Resolution") = 400
+        oOptions.Value("Sheet_Range") = Inventor.PrintRangeEnum.kPrintAllSheets
+    End If
+
+    ' Указываем путь сохранения PDF
+    Dim oData As DataMedium
+    oData = ThisApplication.TransientObjects.CreateDataMedium
+    oData.FileName = pdfFileName
+
+    ' Сохраняем PDF
+    oPDFAddIn.SaveCopyAs(oDoc, oContext, oOptions, oData)
+
+   ' MessageBox.Show("PDF успешно сохранён в:" & vbCrLf & pdfFileName, "Готово")
+End Sub

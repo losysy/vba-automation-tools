@@ -1,0 +1,21 @@
+﻿Sub Main()
+    ' Получаем активный документ
+    Dim doc As Document = ThisApplication.ActiveDocument
+
+    Dim allProps As String = ""
+    
+    ' Перебираем все наборы свойств
+    For Each propSet As Inventor.PropertySet In doc.PropertySets
+        allProps &= "Свойства набора: " & propSet.Name & vbCrLf
+        For Each prop As Inventor.Property In propSet
+            Try
+                allProps &= " - " & prop.Name & ": " & prop.Value.ToString() & vbCrLf
+            Catch
+                allProps &= " - " & prop.Name & ": [ошибка чтения]" & vbCrLf
+            End Try
+        Next
+        allProps &= vbCrLf
+    Next
+
+    MsgBox(allProps)
+End Sub

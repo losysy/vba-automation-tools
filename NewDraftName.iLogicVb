@@ -1,0 +1,35 @@
+﻿' Получаем активный документ (чертеж)
+Dim oDrawingDoc As DrawingDocument = ThisApplication.ActiveDocument
+
+' Проверяем, содержит ли чертеж виды
+If oDrawingDoc.Sheets.Count > 0 Then
+    Dim oSheet As Sheet = oDrawingDoc.Sheets(1) ' Берем первый лист
+    If oSheet.DrawingViews.Count > 0 Then
+        ' Получаем первый вид на листе
+        Dim oView As DrawingView = oSheet.DrawingViews(1)
+        
+        ' Получаем путь и имя файла модели
+        Dim modelPath As String = oView.ReferencedDocumentDescriptor.FullDocumentName
+        Dim modelName As String = System.IO.Path.GetFileNameWithoutExtension(modelPath)
+        
+        ' Устанавливаем новое имя файла чертежа
+        Dim drawingPath As String = System.IO.Path.GetDirectoryName(oDrawingDoc.FullFileName)
+        Dim newDrawingName As String = modelName & ".idw" ' Имя чертежа с расширением .idw
+        
+        ' Переименовываем файл
+        Dim oldFileName As String = oDrawingDoc.FullFileName
+        Dim newFilePath As String = System.IO.Path.Combine(drawingPath, newDrawingName)
+        
+        ' Проверка на существование файла с таким именем
+        If System.IO.File.Exists(newFilePath) Then
+            MessageBox.Show("Файл с именем " & newDrawingName & " уже существует!", "Ошибка")
+        Else
+            oDrawingDoc.SaveAs(newFilePath, False)
+            MessageBox.Show("Чертеж сохранен с именем: " & newDrawingName, "Успех")
+        End If
+    Else
+        MessageBox.Show("В чертеже нет видов!", "Ошибка")
+    End If
+Else
+    MessageBox.Show("В чертеже нет листов!", "Ошибка")
+End If

@@ -1,0 +1,64 @@
+﻿Imports System.IO
+Sub Main() 
+    On Error Resume Next
+    ExportAllModelStates()
+    On Error GoTo 0
+End Sub
+
+Public Sub ExportAllModelStates()
+    Dim oDoc As PartDocument
+    oDoc = ThisApplication.ActiveDocument
+
+    Dim oCompDef As SheetMetalComponentDefinition
+    oCompDef = oDoc.ComponentDefinition
+
+    Dim oModelStates As ModelStates
+    oModelStates = oCompDef.ModelStates
+
+    Dim sFileNameBase As String
+    sFileNameBase = Left(oDoc.FullFileName, Len(oDoc.FullFileName) - 4) ' Убираем ".ipt"
+
+    Dim sStateName As String
+    Dim i As Integer
+    
+    If oModelStates.Count = 1 Then
+        ' Если только одно состояние модели, сохраняем как раньше
+        ExportDxf(sFileNameBase & ".dxf")
+    Else
+        ' Перебираем все состояния модели
+        For i = 1 To oModelStates.Count
+            oModelStates.Item(i).Activate()
+            sStateName = oModelStates.Item(i).Name
+            ExportDxf(sFileNameBase & "-01_" & sStateName & ".dxf")
+        Next
+    End If
+End Sub
+
+Public Sub ExportDxf(ByVal sFname As String)
+    Dim oDoc As PartDocument
+    oDoc = ThisApplication.ActiveDocument
+
+    Dim oCompDef As SheetMetalComponentDefinition
+    oCompDef = oDoc.ComponentDefinition
+
+    If oCompDef.HasFlatPattern = False Then
+        On Error Resume Next
+        oCompDef.Unfold()
+        If Err.Number <> 0 Then
+            Err.Clear
+            Exit Sub
+        End If
+        On Error GoTo 0
+    Else
+        oCompDef.FlatPattern.Edit()
+    End If
+
+    Dim sOut As String
+    sOut = "FLAT PATTERN DXF?AcadVersion=2004" & _
+           "&InvisibleLayers=IV_BEND;IV_BEND_DOWN;IV_TOOL_CENTER;IV_FEATURE_PROFILES;" & _
+           "IV_UNCONSUMED_SKETCHES;IV_ARC_CENTERS;IV_TANGENT"
+
+    On Error Resume Next
+    oCompDef.DataIO.WriteDataToFile(sOut, sFname)
+    On Error GoTo 0
+End Sub

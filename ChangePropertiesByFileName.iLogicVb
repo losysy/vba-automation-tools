@@ -1,0 +1,97 @@
+﻿' Получаем имя файла без пути
+Dim fileName As String = ThisDoc.FileName(False)
+
+' Определяем текущий документ
+Dim oDoc As Document = ThisApplication.ActiveDocument
+
+' Проверяем, является ли документ чертежом
+Dim isDrawing As Boolean
+isDrawing = (oDoc.DocumentType = kDrawingDocumentObject)
+
+' Объявляем переменные
+Dim modelState As String
+Dim stateIndex As Integer
+stateIndex = 0 ' По умолчанию 0 для основного состояния
+
+' Если документ НЕ чертеж, проверяем состояния модели
+If Not isDrawing Then
+    If TypeOf oDoc.ComponentDefinition Is PartComponentDefinition Then
+        Dim compDef As PartComponentDefinition = oDoc.ComponentDefinition
+        If compDef.ModelStates.Count > 1 Then
+            ' Получаем текущее состояние модели
+            modelState = compDef.ModelStates.ActiveModelState.Name
+
+            ' Находим индекс текущего состояния в списке ModelStates
+            Dim i As Integer
+            For i = 1 To compDef.ModelStates.Count - 1
+                If compDef.ModelStates.Item(i).Name = modelState Then
+                    stateIndex = i
+                    Exit For
+                End If
+            Next
+        Else
+            modelState = "Основной"
+        End If
+    ElseIf TypeOf oDoc.ComponentDefinition Is AssemblyComponentDefinition Then
+        ' Для сборок (если они тоже имеют состояния)
+        Dim compDef As AssemblyComponentDefinition = oDoc.ComponentDefinition
+        If compDef.ModelStates.Count > 1 Then
+            modelState = compDef.ModelStates.ActiveModelState.Name
+
+            ' Находим индекс текущего состояния
+            Dim i As Integer
+            For i = 1 To compDef.ModelStates.Count - 1
+                If compDef.ModelStates.Item(i).Name = modelState Then
+                    stateIndex = i
+                    Exit For
+                End If
+            Next
+        Else
+            modelState = "Основной"
+        End If
+    Else
+        modelState = "Основной"
+    End If
+Else
+    ' Если это чертеж, просто ставим "Основной" (у чертежей нет состояний)
+    modelState = "Основной"
+End If
+
+' Разделяем имя файла по символу "_"
+Dim splitName() As String = Split(fileName, "_")
+
+' Проверяем, что имя файла корректно разделилось
+If UBound(splitName) >= 1 Then
+    ' Получаем вторую часть имени файла (после первого "_")
+    Dim description As String = Mid(fileName, InStr(fileName, "_") + 1)
+    
+    ' Записываем часть до "_" в свойство "Обозначение"
+    Dim designation As String = splitName(0)
+    
+    ' Если состояние модели не "Основной", добавляем суффикс
+    If modelState <> "Основной" Then
+        designation = designation & "-" & Right("00" & stateIndex, 2) ' Нумерация с 01
+        description = description & " " & modelState ' Добавляем имя состояния модели
+    End If
+
+    ' Записываем обновленные свойства
+    iProperties.Value("Project", "Part Number") = designation
+    iProperties.Value("Project", "Description") = description
+    iProperties.Value("Summary", "Title") = description
+	Try
+    ThisDoc.Document.Save
+Catch
+    ' Игнорируем ошибки сохранения
+End Try
+Else
+    ' Если разделение по "_" не удалось, просто записываем имя файла
+    iProperties.Value("Project", "Part Number") = fileName
+    iProperties.Value("Project", "Description") = fileName
+    iProperties.Value("Summary", "Title") = fileName
+	Try
+    ThisDoc.Document.Save
+Catch
+    ' Игнорируем ошибки сохранения
+End Try
+End If
+

@@ -1,0 +1,14 @@
+﻿' Пробуем сохранить активный документ
+Try
+    Dim doc As Document
+    doc = ThisApplication.ActiveDocument
+
+    ' Проверка: если документ ещё не сохранён (новый), просто выходим
+    If doc.FullFileName = "" Then Exit Sub
+
+    ' Пытаемся сохранить
+    doc.Save
+
+Catch
+    ' Тихо игнорируем любые ошибки
+End Try
