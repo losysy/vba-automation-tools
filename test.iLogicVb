@@ -1,0 +1,26 @@
+﻿Imports Inventor
+
+Sub Main()
+    Dim oDoc As Document = ThisDoc.Document
+
+    If oDoc.DocumentType = DocumentTypeEnum.kAssemblyDocumentObject Then
+        Dim oAsmDoc As AssemblyDocument = oDoc
+        Dim oBOM As BOM = oAsmDoc.ComponentDefinition.BOM
+
+        oBOM.StructuredViewEnabled = True
+        oBOM.StructuredViewFirstLevelOnly = False
+
+        Dim oBOMView As BOMView = oBOM.BOMViews.Item("Structured")
+
+        ' Перебор всех колонок BOM
+        Dim columnList As String = "Колонки в BOM:" & vbCrLf
+
+        For Each col As BOMColumn In oBOMView.BOMColumns
+            columnList &= col.PropertyType.ToString() & " | " & col.PropertyInternalName & " | " & col.Title & vbCrLf
+        Next
+
+        MsgBox(columnList)
+    Else
+        MsgBox("Открой сборку, чтобы посмотреть BOM.")
+    End If
+End Sub
